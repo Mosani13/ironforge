@@ -341,6 +341,49 @@
   }
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
+  /* ===== 추가: 음성 가이드 · 휴식 타이머 · 설정 ===== */
+  .lnk.gd{color:var(--steel);font-weight:700}
+  .resttimer{
+    position:fixed;left:0;right:0;bottom:calc(60px + var(--safe-b));z-index:18;
+    max-width:520px;margin:0 auto;padding:0 12px;
+    transform:translateY(220%);transition:transform .35s cubic-bezier(.2,.9,.2,1);pointer-events:none;
+  }
+  .resttimer.on{transform:translateY(0);pointer-events:auto}
+  .rt-box{
+    background:linear-gradient(180deg,#16242e,#0e1419);
+    border:1px solid #27414f;border-radius:18px;padding:12px 14px;
+    box-shadow:0 14px 40px -14px rgba(111,208,255,.35),0 12px 30px -12px #000;
+    display:flex;align-items:center;gap:12px;
+  }
+  .rt-ring{
+    --p:0;width:56px;height:56px;flex:none;border-radius:50%;
+    background:radial-gradient(closest-side,#0e1419 70%,transparent 71%),conic-gradient(var(--steel) calc(var(--p)*1%),#22323c 0);
+    display:grid;place-items:center;
+  }
+  .rt-ring .t{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:15px;color:var(--steel)}
+  .rt-mid{flex:1;min-width:0}
+  .rt-mid .lab{font-size:10px;color:var(--faint);letter-spacing:.16em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rt-mid .big{font-family:"Anton",sans-serif;font-size:21px;color:var(--ink);line-height:1.15;margin-top:2px}
+  .rt-btns{display:flex;gap:6px;flex:none}
+  .rt-btns button{
+    border:1px solid #2c4654;background:#13202a;color:#cfe9f6;font-family:inherit;
+    font-size:11px;font-weight:700;padding:9px 8px;border-radius:10px;cursor:pointer;min-width:34px;
+  }
+  .rt-btns button:active{transform:scale(.92)}
+  .rt-btns .skip{background:var(--steel);color:#03212e;border-color:var(--steel)}
+  .setln{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+  .setln:last-child{border-bottom:0}
+  .setln .nm{flex:1;font-size:13.5px}
+  .setln .nm small{display:block;color:var(--faint);font-size:11px;margin-top:3px}
+  .mini-stp{display:flex;align-items:center;background:var(--bg2);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .mini-stp button{width:34px;height:36px;border:0;background:transparent;color:var(--dim);font-size:16px;cursor:pointer;font-family:inherit}
+  .mini-stp button:active{color:var(--ember);background:rgba(255,106,43,.08)}
+  .mini-stp .val{min-width:52px;text-align:center;font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:700;color:var(--ink)}
+  .tog{width:46px;height:27px;border-radius:20px;border:1px solid var(--line2);background:var(--bg2);position:relative;cursor:pointer;flex:none;transition:.2s}
+  .tog::after{content:"";position:absolute;top:2px;left:2px;width:21px;height:21px;border-radius:50%;background:var(--faint);transition:.2s}
+  .tog.on{background:rgba(255,106,43,.22);border-color:var(--ember)}
+  .tog.on::after{left:21px;background:var(--ember)}
+
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -430,6 +473,31 @@
       <div class="sect-h mt"><h2>단련 기록</h2><span class="en">Log</span></div>
       <div class="card hist" id="histList"></div>
 
+      <div class="sect-h mt"><h2>타이머 · 음성</h2><span class="en">Settings</span></div>
+      <div class="card" style="padding:6px 18px">
+        <div class="edge"></div>
+        <div class="setln">
+          <div class="nm">휴식 시간<small>세트 완료 시 자동 시작</small></div>
+          <div class="mini-stp" data-set="rest">
+            <button data-d="-15">－</button><div class="val" id="setRest">60초</div><button data-d="15">＋</button>
+          </div>
+        </div>
+        <div class="setln">
+          <div class="nm">카운트 템포<small>음성 카운트 1회 간격</small></div>
+          <div class="mini-stp" data-set="tempo">
+            <button data-d="-0.5">－</button><div class="val" id="setTempo">2.5초</div><button data-d="0.5">＋</button>
+          </div>
+        </div>
+        <div class="setln">
+          <div class="nm">음성 안내<small>준비·카운트·휴식 종료 음성</small></div>
+          <div class="tog" id="togVoice"></div>
+        </div>
+        <div class="setln">
+          <div class="nm">효과음 · 진동<small>비프음과 휴대폰 진동</small></div>
+          <div class="tog" id="togBeep"></div>
+        </div>
+      </div>
+
       <div class="sect-h mt"><h2>데이터</h2><span class="en">Data</span></div>
       <div class="card" style="padding:16px">
         <div class="edge"></div>
@@ -450,6 +518,17 @@
     <button class="nb" data-v="lib"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 012-2h12v18H6a2 2 0 01-2-2zM18 3v18"/></svg><span>도감</span></button>
     <button class="nb" data-v="rec"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 16v-5M13 16V8M18 16v-3"/></svg><span>기록</span></button>
   </nav>
+
+  <div class="resttimer" id="restPanel">
+    <div class="rt-box">
+      <div class="rt-ring" id="rtRing"><div class="t" id="rtT">0:00</div></div>
+      <div class="rt-mid">
+        <div class="lab" id="rtLab">휴식</div>
+        <div class="big" id="rtBig">준비</div>
+      </div>
+      <div class="rt-btns" id="rtBtns"></div>
+    </div>
+  </div>
 </div>
 
 <div class="scrim" id="scrim">
@@ -535,17 +614,19 @@ const BADGES = [
 
 /* ---------- 저장소 ---------- */
 const KEY="ironforge.v1";
+const DEF_SET={rest:60,tempo:2.5,voice:true,beep:true};
 const FRESH=()=>({
   v:1, createdAt:Date.now(),
   stats:{xp:0,level:1,streak:0,bestStreak:0,last:null,
          workouts:0,totalSets:0,totalReps:0,totalVol:0,dawn:false,parts:{}},
-  history:[], badges:{}, session:null, lastWeight:{}
+  history:[], badges:{}, session:null, lastWeight:{}, settings:{...DEF_SET}
 });
 let DB;
 function load(){
   try{ DB=JSON.parse(localStorage.getItem(KEY)); }catch(e){ DB=null; }
   if(!DB||DB.v!==1) DB=FRESH();
   if(!DB.lastWeight) DB.lastWeight={};
+  DB.settings=Object.assign({},DEF_SET,DB.settings||{});
 }
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(DB)); }catch(e){ toast("저장 공간 부족"); } }
 
@@ -667,6 +748,7 @@ function renderWork(){
       </div>
       <div class="sets"></div>
       <div class="exfoot">
+        <button class="lnk gd" data-act="guide">▶ 음성 가이드</button>
         <button class="lnk" data-act="add">＋ 세트 추가</button>
         <button class="lnk" data-act="alldone">전체 완료</button>
         ${sx.sets.length>1?'<button class="lnk del" data-act="del">－ 세트 삭제</button>':''}
@@ -702,7 +784,8 @@ function renderWork(){
         set[f]=v; inp.value=v; if(f==="weight")DB.lastWeight[sx.id]=v; save(); updateFinish();
       });
       row.querySelector(".sc").onclick=()=>{
-        set.done=!set.done; save(); renderWork(); updateFinish();
+        const was=set.done; set.done=!set.done; save(); renderWork(); updateFinish();
+        if(!was && set.done && !GUIDE) runRest(DB.settings.rest);
       };
       sc.appendChild(row);
     });
@@ -710,6 +793,7 @@ function renderWork(){
       sx.sets.forEach(s=>s.done=!all); save(); renderWork(); updateFinish(); };
     card.querySelectorAll('.exfoot .lnk').forEach(b=>b.onclick=()=>{
       const a=b.dataset.act;
+      if(a==="guide"){ startGuide(sx,e); return; }
       if(a==="add") sx.sets.push({reps:e.reps,weight:DB.lastWeight[sx.id]??(e.type==="덤벨"?5:0),done:false});
       if(a==="del"&&sx.sets.length>1) sx.sets.pop();
       if(a==="alldone"){ const all=sx.sets.every(s=>s.done); sx.sets.forEach(s=>s.done=!all); }
@@ -840,6 +924,7 @@ function renderLib(){
 /* ---------- RECORDS ---------- */
 function renderRec(){
   drawChart();
+  renderSettings();
   // 뱃지
   const g=document.getElementById("badgeGrid"); g.innerHTML="";
   BADGES.forEach(([id,em,nm,ds])=>{ const got=!!DB.badges[id];
@@ -923,8 +1008,147 @@ let tT;
 function toast(m){ const e=document.getElementById("toast"); e.textContent=m;
   e.classList.add("on"); clearTimeout(tT); tT=setTimeout(()=>e.classList.remove("on"),2200); }
 
+/* ---------- 오디오 · 음성 ---------- */
+const $g=id=>document.getElementById(id);
+let AC=null, SP_OK=false;
+function unlockAudio(){
+  try{ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)();
+    if(AC&&AC.state==="suspended") AC.resume(); }catch(e){}
+  if(!SP_OK && "speechSynthesis" in window){ SP_OK=true;
+    try{ const u=new SpeechSynthesisUtterance(" "); u.volume=0; speechSynthesis.speak(u); }catch(e){} }
+}
+addEventListener("pointerdown",unlockAudio);
+function beep(f,d,v){
+  if(!DB||!DB.settings.beep||!AC) return;
+  try{ const o=AC.createOscillator(), g=AC.createGain();
+    o.type="sine"; o.frequency.value=f; o.connect(g); g.connect(AC.destination);
+    const t=AC.currentTime; g.gain.setValueAtTime(v||0.18,t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+(d||0.15));
+    o.start(t); o.stop(t+(d||0.15)+0.02);
+  }catch(e){}
+}
+function vibe(p){ if(DB&&DB.settings.beep&&navigator.vibrate){ try{navigator.vibrate(p);}catch(e){} } }
+function say(txt){
+  if(!DB||!DB.settings.voice||!("speechSynthesis" in window)) return;
+  try{ speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(txt); u.lang="ko-KR"; u.rate=1.06;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+const KNUM=["","하나","둘","셋","넷","다섯","여섯","일곱","여덟","아홉","열","열하나","열둘","열셋","열넷","열다섯","열여섯","열일곱","열여덟","열아홉","스물","스물하나","스물둘","스물셋","스물넷","스물다섯","스물여섯","스물일곱","스물여덟","스물아홉","서른"];
+const kCount=n=>KNUM[n]||(n+"");
+const fmtT=s=>{ s=Math.max(0,Math.round(s)); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); };
+
+/* ---------- 활동 패널 (음성 카운트 · 휴식) ---------- */
+let PT=null, GUIDE=null;
+function clearPT(){ if(PT){ clearTimeout(PT); clearInterval(PT); PT=null; } try{speechSynthesis.cancel();}catch(e){} }
+const pShow=()=>$g("restPanel").classList.add("on");
+const pHide=()=>$g("restPanel").classList.remove("on");
+const pRing=p=>$g("rtRing").style.setProperty("--p",Math.max(0,Math.min(100,p||0)));
+
+function runCount(e,set,onDone,onStop){
+  unlockAudio(); clearPT();
+  const isTime=e.unit==="초", target=Math.max(1,set.reps);
+  const tempo=isTime?1000:Math.max(800,Math.round((DB.settings.tempo||2.5)*1000));
+  pShow();
+  $g("rtLab").textContent="세트 진행 · "+e.name;
+  $g("rtBtns").innerHTML='<button id="pA">세트 완료</button><button class="skip" id="pB">중지</button>';
+  $g("pA").onclick=()=>{ clearPT(); fin(); };
+  $g("pB").onclick=()=>{ clearPT(); pHide(); if(onStop)onStop(); };
+  let lead=3; $g("rtBig").textContent="준비"; $g("rtT").textContent=""; pRing(0); say("준비");
+  PT=setTimeout(function lin(){
+    if(lead>0){ say(lead+""); beep(620,.09); $g("rtBig").textContent=lead; $g("rtT").textContent=lead; lead--; PT=setTimeout(lin,750); return; }
+    say("시작"); beep(940,.15); $g("rtBig").textContent="시작!";
+    let i=isTime?target:1;
+    (function tick(){
+      if(isTime){
+        $g("rtBig").textContent=i+"초"; $g("rtT").textContent=i; pRing((target-i)/target*100);
+        if(i<=0){ fin(); return; }
+        if(i<=5) say(i+""); else if(i%10===0) say(i+"초");
+        if(i<=3) beep(700,.1);
+        i--; PT=setTimeout(tick,1000);
+      }else{
+        $g("rtBig").textContent=i+" / "+target; $g("rtT").textContent=i; pRing((i-1)/target*100);
+        say(kCount(i));
+        if(i>=target){ pRing(100); PT=setTimeout(fin,tempo); return; }
+        i++; PT=setTimeout(tick,tempo);
+      }
+    })();
+  },750);
+  function fin(){ clearPT(); beep(1046,.22,.22); setTimeout(()=>beep(1318,.26,.22),150); vibe([90,50,90]); say("완료"); if(onDone)onDone(); }
+}
+
+function runRest(sec,onEnd){
+  unlockAudio(); clearPT();
+  sec=Math.round(sec||0);
+  if(sec<3){ if(onEnd)onEnd(); return; }
+  let left=sec,total=sec,paused=false;
+  pShow();
+  $g("rtLab").textContent="휴식";
+  $g("rtBtns").innerHTML='<button id="pM">−15</button><button id="pP">＋15</button><button id="pZ">∥</button><button class="skip" id="pS">스킵</button>';
+  const draw=()=>{ $g("rtT").textContent=fmtT(left); $g("rtBig").textContent=paused?"일시정지":fmtT(left)+" 남음"; pRing((total-left)/total*100); $g("pZ").textContent=paused?"▶":"∥"; };
+  $g("pM").onclick=()=>{ left=Math.max(1,left-15); total=Math.max(total,left); draw(); };
+  $g("pP").onclick=()=>{ left+=15; total=Math.max(total,left); draw(); };
+  $g("pZ").onclick=()=>{ paused=!paused; draw(); };
+  $g("pS").onclick=()=>{ clearPT(); pHide(); if(onEnd)onEnd(); };
+  draw(); beep(880,.12); say("휴식 "+sec+"초");
+  PT=setInterval(()=>{
+    if(paused) return;
+    left--;
+    if(left===10) say("십초"); else if(left===5) say("오초"); else if(left<=3&&left>0) beep(700,.1);
+    if(left<=0){ clearPT(); pRing(100); $g("rtBig").textContent="시작!"; $g("rtT").textContent="0:00";
+      beep(1046,.26,.24); setTimeout(()=>beep(1318,.3,.24),160); vibe([120,60,120]); say("휴식 끝. 다음 세트");
+      setTimeout(pHide,1800); if(onEnd)onEnd(); return; }
+    draw();
+  },1000);
+}
+
+function startGuide(sx,e){
+  unlockAudio();
+  const q=sx.sets.map((s,i)=>i).filter(i=>!sx.sets[i].done);
+  if(!q.length){ toast("이미 완료된 운동입니다"); return; }
+  GUIDE={};
+  toast("음성 가이드 시작 · "+e.name);
+  (function step(){
+    if(!GUIDE) return;
+    if(!q.length){ GUIDE=null; say(e.name+" 완료. 수고했다"); renderWork(); updateFinish(); setTimeout(pHide,1600); return; }
+    const set=sx.sets[q.shift()];
+    runCount(e,set,
+      ()=>{ if(!GUIDE) return; set.done=true; save(); renderWork(); updateFinish();
+            if(q.length) runRest(DB.settings.rest,()=>{ if(GUIDE) step(); });
+            else step(); },
+      ()=>{ GUIDE=null; renderWork(); });
+  })();
+}
+
+/* ---------- 설정 UI ---------- */
+function renderSettings(){
+  if(!DB||!DB.settings) return;
+  const s=DB.settings;
+  if($g("setRest")) $g("setRest").textContent=s.rest+"초";
+  if($g("setTempo")) $g("setTempo").textContent=Number(s.tempo).toFixed(1)+"초";
+  if($g("togVoice")) $g("togVoice").classList.toggle("on",!!s.voice);
+  if($g("togBeep")) $g("togBeep").classList.toggle("on",!!s.beep);
+}
+function bindControls(){
+  document.querySelectorAll(".mini-stp").forEach(box=>{
+    const key=box.dataset.set;
+    box.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+      const d=parseFloat(b.dataset.d);
+      if(key==="rest") DB.settings.rest=Math.min(300,Math.max(0,DB.settings.rest+d));
+      if(key==="tempo") DB.settings.tempo=Math.min(6,Math.max(1,+(DB.settings.tempo+d).toFixed(1)));
+      save(); renderSettings();
+    });
+  });
+  $g("togVoice").onclick=()=>{ DB.settings.voice=!DB.settings.voice; save(); renderSettings();
+    if(DB.settings.voice){ unlockAudio(); say("음성 안내를 켰습니다"); } };
+  $g("togBeep").onclick=()=>{ DB.settings.beep=!DB.settings.beep; save(); renderSettings();
+    if(DB.settings.beep){ unlockAudio(); beep(880,.14); vibe(60); } };
+  renderSettings();
+}
+
 /* ---------- 부팅 ---------- */
-load(); renderHud(); renderHome();
+load(); renderHud(); renderHome(); bindControls();
 addEventListener("resize",()=>{ if(curView==="rec") drawChart(); });
 window.addEventListener("beforeunload",save);
 </script>
