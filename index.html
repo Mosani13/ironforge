@@ -383,6 +383,20 @@
   .tog::after{content:"";position:absolute;top:2px;left:2px;width:21px;height:21px;border-radius:50%;background:var(--faint);transition:.2s}
   .tog.on{background:rgba(255,106,43,.22);border-color:var(--ember)}
   .tog.on::after{left:21px;background:var(--ember)}
+  .addbtn{border:1px solid var(--line2);background:var(--bg2);color:var(--dim);font-family:inherit;font-size:12px;font-weight:700;padding:9px 12px;border-radius:10px;cursor:pointer;flex:none;white-space:nowrap}
+  .addbtn:active{transform:scale(.93)}
+  .addbtn.on{background:linear-gradient(135deg,var(--ember),#c83e10);color:#fff;border-color:transparent;box-shadow:0 6px 16px -8px var(--ember)}
+  .lbody{cursor:pointer}
+  .chip.cst{border-style:dashed;border-color:var(--line2)}
+  .chip.cst.on{border-style:solid}
+  .cbar{background:linear-gradient(180deg,#1d1d23,var(--bg2));border:1px solid var(--line);border-radius:14px;padding:14px 15px;margin-bottom:13px}
+  .cbar .ct{font-size:13.5px;color:var(--ink);font-weight:800}
+  .cbar .cs{font-size:11.5px;color:var(--faint);margin-top:6px;line-height:1.55;word-break:keep-all}
+  .cbar .cbtns{display:flex;gap:8px;margin-top:12px}
+  .cbar .cbtns button{flex:1;border:0;border-radius:10px;padding:11px;font-size:12.5px;font-weight:800;font-family:inherit;cursor:pointer}
+  .cbar .cbtns button:active{transform:scale(.97)}
+  .cbar .go{background:linear-gradient(135deg,var(--ember2),var(--ember));color:#1a0d05}
+  .cbar .clr{background:var(--panel2);color:var(--dim);border:1px solid var(--line)}
 
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -591,6 +605,7 @@ const ROUTINES = {
   upper:{name:"상체",ico:"💪",ex:["bw_pushup","db_sh_press","db_row","db_curl","db_tri_ext","db_lat_raise"]},
   lower:{name:"하체",ico:"🦵",ex:["db_goblet","bw_squat","db_lunge","db_rdl","bw_glute"]},
   core:{name:"코어",ico:"🔩",ex:["bw_plank","bw_crunch","bw_leg_raise","bw_mtn","bw_superman"]},
+  custom:{name:"내 루틴",ico:"🛠"},
 };
 const SUG_CYCLE=["full","upper","lower","core","full","upper","lower"]; // 요일 기반 추천
 
@@ -619,7 +634,7 @@ const FRESH=()=>({
   v:1, createdAt:Date.now(),
   stats:{xp:0,level:1,streak:0,bestStreak:0,last:null,
          workouts:0,totalSets:0,totalReps:0,totalVol:0,dawn:false,parts:{}},
-  history:[], badges:{}, session:null, lastWeight:{}, settings:{...DEF_SET}
+  history:[], badges:{}, session:null, lastWeight:{}, settings:{...DEF_SET}, custom:[]
 });
 let DB;
 function load(){
@@ -627,6 +642,7 @@ function load(){
   if(!DB||DB.v!==1) DB=FRESH();
   if(!DB.lastWeight) DB.lastWeight={};
   DB.settings=Object.assign({},DEF_SET,DB.settings||{});
+  if(!Array.isArray(DB.custom)) DB.custom=[];
 }
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(DB)); }catch(e){ toast("저장 공간 부족"); } }
 
@@ -707,7 +723,8 @@ const fmt=n=>n>=10000?(n/1000).toFixed(1)+"k":Math.round(n).toLocaleString("en")
 /* ---------- WORKOUT ---------- */
 function resolveRoutine(key){
   if(key==="sug"){ return ROUTINES[SUG_CYCLE[new Date().getDay()]].ex; }
-  return ROUTINES[key].ex;
+  if(key==="custom"){ return (DB.custom||[]).filter(id=>EXM[id]); }
+  return ROUTINES[key].ex||[];
 }
 function newSession(key){
   const ids=resolveRoutine(key);
@@ -724,9 +741,10 @@ function renderWork(){
   const chips=document.getElementById("routineChips"); chips.innerHTML="";
   Object.entries(ROUTINES).forEach(([k,r])=>{
     const b=document.createElement("button");
-    b.className="chip"+(k==="sug"?" sug":"")+(k===curRoutine?" on":"");
-    b.textContent=`${r.ico} ${r.name}`;
+    b.className="chip"+(k==="sug"?" sug":"")+(k==="custom"?" cst":"")+(k===curRoutine?" on":"");
+    b.textContent=k==="custom"?`${r.ico} ${r.name} (${(DB.custom||[]).length})`:`${r.ico} ${r.name}`;
     b.onclick=()=>{ if(k===curRoutine)return;
+      if(k==="custom" && !(DB.custom||[]).length){ toast("도감에서 운동을 담아 루틴을 만들어요"); show("lib"); return; }
       if(sessionHasProgress()&&!confirm("진행 중인 세트가 사라집니다. 루틴을 바꿀까요?"))return;
       curRoutine=k; DB.session=newSession(k); save(); renderWork(); };
     chips.appendChild(b);
@@ -899,23 +917,45 @@ function renderLib(){
     b.className="chip"+(p===curPart?" on":""); b.textContent=p;
     b.onclick=()=>{ curPart=p; renderLib(); }; cw.appendChild(b); });
   const list=document.getElementById("libList"); list.innerHTML="";
-  let open=null;
+  if(!Array.isArray(DB.custom)) DB.custom=[];
+  const n=DB.custom.length;
+  const bar=document.createElement("div"); bar.className="cbar";
+  bar.innerHTML = n
+    ? `<div class="ct">🛠 내 루틴 — ${n}개 운동</div>
+       <div class="cs">${DB.custom.map(id=>EXM[id]&&EXM[id].name).filter(Boolean).join(" · ")}</div>
+       <div class="cbtns"><button class="go">단련에서 시작</button><button class="clr">비우기</button></div>`
+    : `<div class="ct">🛠 내 루틴 만들기</div>
+       <div class="cs">아래 운동에서 <b style="color:var(--ember2)">＋ 담기</b>를 눌러 나만의 루틴을 구성하세요. 담은 운동은 단련 탭의 「🛠 내 루틴」으로 시작됩니다.</div>`;
+  list.appendChild(bar);
+  if(n){
+    bar.querySelector(".go").onclick=()=>{
+      if(sessionHasProgress()&&!confirm("진행 중인 세트가 사라집니다. 내 루틴으로 바꿀까요?"))return;
+      curRoutine="custom"; DB.session=newSession("custom"); save(); show("work");
+    };
+    bar.querySelector(".clr").onclick=()=>{ if(!confirm("내 루틴을 비울까요?"))return; DB.custom=[]; save(); renderLib(); };
+  }
   EXS.filter(e=>curPart==="전체"||e[2]===curPart).forEach(arr=>{
     const e=EXM[arr[0]];
+    const inC=DB.custom.includes(e.id);
     const card=document.createElement("div"); card.className="card libitem";
     card.innerHTML=`
       <div class="top">
         <div class="ico" style="width:34px;height:34px;font-size:16px">${e.icon}</div>
-        <div style="flex:1">
+        <div class="lbody" style="flex:1;min-width:0">
           <div class="nm">${e.name}</div>
           <div class="meta">${e.type} · ${e.part} · 권장 ${e.sets}세트 × ${e.reps}${e.unit}</div>
         </div>
-        <div style="color:var(--faint);font-size:18px" class="exp">＋</div>
+        <button class="addbtn${inC?' on':''}">${inC?'✓ 담음':'＋ 담기'}</button>
       </div>
       <div class="tip" style="display:none">${e.tip}</div>`;
-    card.querySelector(".top").onclick=()=>{
-      const tp=card.querySelector(".tip"), o=tp.style.display!=="none";
-      tp.style.display=o?"none":"block"; card.querySelector(".exp").textContent=o?"＋":"－";
+    const toggleTip=()=>{ const tp=card.querySelector(".tip"); tp.style.display=tp.style.display!=="none"?"none":"block"; };
+    card.querySelector(".lbody").onclick=toggleTip;
+    card.querySelector(".ico").onclick=toggleTip;
+    card.querySelector(".addbtn").onclick=ev=>{
+      ev.stopPropagation();
+      const i=DB.custom.indexOf(e.id);
+      if(i>=0) DB.custom.splice(i,1); else DB.custom.push(e.id);
+      save(); renderLib();
     };
     list.appendChild(card);
   });
