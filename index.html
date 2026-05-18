@@ -1028,10 +1028,22 @@ function beep(f,d,v){
   }catch(e){}
 }
 function vibe(p){ if(DB&&DB.settings.beep&&navigator.vibrate){ try{navigator.vibrate(p);}catch(e){} } }
+let VOICE=null;
+function pickVoice(){
+  if(!("speechSynthesis" in window)) return;
+  const vs=speechSynthesis.getVoices()||[];
+  const ko=vs.filter(v=>/ko[-_]?KR/i.test(v.lang)||/korean|한국/i.test(v.name||""));
+  VOICE = ko.find(v=>/google/i.test(v.name))
+       || ko.find(v=>/yuna|sora|nara|natural|neural|premium|female/i.test(v.name))
+       || ko[0] || null;
+}
+if("speechSynthesis" in window){ pickVoice(); try{ speechSynthesis.onvoiceschanged=pickVoice; }catch(e){} }
 function say(txt){
   if(!DB||!DB.settings.voice||!("speechSynthesis" in window)) return;
   try{ speechSynthesis.cancel();
-    const u=new SpeechSynthesisUtterance(txt); u.lang="ko-KR"; u.rate=1.06;
+    const u=new SpeechSynthesisUtterance(txt);
+    u.lang="ko-KR"; u.rate=1.0; u.pitch=1.0; u.volume=1;
+    if(VOICE) u.voice=VOICE;
     speechSynthesis.speak(u);
   }catch(e){}
 }
@@ -1055,17 +1067,17 @@ function runCount(e,set,onDone,onStop){
   $g("rtBtns").innerHTML='<button id="pA">세트 완료</button><button class="skip" id="pB">중지</button>';
   $g("pA").onclick=()=>{ clearPT(); fin(); };
   $g("pB").onclick=()=>{ clearPT(); pHide(); if(onStop)onStop(); };
-  let lead=3; $g("rtBig").textContent="준비"; $g("rtT").textContent=""; pRing(0); say("준비");
+  let lead=3; $g("rtBig").textContent="준비"; $g("rtT").textContent=""; pRing(0); say("자, 준비하세요");
   PT=setTimeout(function lin(){
-    if(lead>0){ say(lead+""); beep(620,.09); $g("rtBig").textContent=lead; $g("rtT").textContent=lead; lead--; PT=setTimeout(lin,750); return; }
-    say("시작"); beep(940,.15); $g("rtBig").textContent="시작!";
+    if(lead>0){ say(kCount(lead)); beep(620,.09); $g("rtBig").textContent=lead; $g("rtT").textContent=lead; lead--; PT=setTimeout(lin,950); return; }
+    say("시작!"); beep(940,.15); $g("rtBig").textContent="시작!";
     let i=isTime?target:1;
-    (function tick(){
+    PT=setTimeout(function tick(){
       if(isTime){
         $g("rtBig").textContent=i+"초"; $g("rtT").textContent=i; pRing((target-i)/target*100);
         if(i<=0){ fin(); return; }
-        if(i<=5) say(i+""); else if(i%10===0) say(i+"초");
-        if(i<=3) beep(700,.1);
+        if(i<=5 && i>0) say(kCount(i)); else if(i%10===0) say(i+"초 남았어요");
+        if(i<=3 && i>0) beep(700,.1);
         i--; PT=setTimeout(tick,1000);
       }else{
         $g("rtBig").textContent=i+" / "+target; $g("rtT").textContent=i; pRing((i-1)/target*100);
@@ -1073,9 +1085,9 @@ function runCount(e,set,onDone,onStop){
         if(i>=target){ pRing(100); PT=setTimeout(fin,tempo); return; }
         i++; PT=setTimeout(tick,tempo);
       }
-    })();
-  },750);
-  function fin(){ clearPT(); beep(1046,.22,.22); setTimeout(()=>beep(1318,.26,.22),150); vibe([90,50,90]); say("완료"); if(onDone)onDone(); }
+    },650);
+  },1200);
+  function fin(){ clearPT(); beep(1046,.22,.22); setTimeout(()=>beep(1318,.26,.22),150); vibe([90,50,90]); say("좋아요, 잘했어요"); if(onDone)onDone(); }
 }
 
 function runRest(sec,onEnd){
@@ -1091,13 +1103,13 @@ function runRest(sec,onEnd){
   $g("pP").onclick=()=>{ left+=15; total=Math.max(total,left); draw(); };
   $g("pZ").onclick=()=>{ paused=!paused; draw(); };
   $g("pS").onclick=()=>{ clearPT(); pHide(); if(onEnd)onEnd(); };
-  draw(); beep(880,.12); say("휴식 "+sec+"초");
+  draw(); beep(880,.12); say(sec+"초 휴식하세요");
   PT=setInterval(()=>{
     if(paused) return;
     left--;
-    if(left===10) say("십초"); else if(left===5) say("오초"); else if(left<=3&&left>0) beep(700,.1);
+    if(left===10) say("십 초 남았어요"); else if(left===5) say("오 초"); else if(left===3) say("셋"); else if(left<=2&&left>0) beep(700,.1);
     if(left<=0){ clearPT(); pRing(100); $g("rtBig").textContent="시작!"; $g("rtT").textContent="0:00";
-      beep(1046,.26,.24); setTimeout(()=>beep(1318,.3,.24),160); vibe([120,60,120]); say("휴식 끝. 다음 세트");
+      beep(1046,.26,.24); setTimeout(()=>beep(1318,.3,.24),160); vibe([120,60,120]); say("휴식 끝! 다시 시작하세요");
       setTimeout(pHide,1800); if(onEnd)onEnd(); return; }
     draw();
   },1000);
@@ -1111,7 +1123,7 @@ function startGuide(sx,e){
   toast("음성 가이드 시작 · "+e.name);
   (function step(){
     if(!GUIDE) return;
-    if(!q.length){ GUIDE=null; say(e.name+" 완료. 수고했다"); renderWork(); updateFinish(); setTimeout(pHide,1600); return; }
+    if(!q.length){ GUIDE=null; say(e.name+", 끝까지 잘했어요"); renderWork(); updateFinish(); setTimeout(pHide,1600); return; }
     const set=sx.sets[q.shift()];
     runCount(e,set,
       ()=>{ if(!GUIDE) return; set.done=true; save(); renderWork(); updateFinish();
